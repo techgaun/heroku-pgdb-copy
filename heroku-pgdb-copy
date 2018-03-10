@@ -1,0 +1,27 @@
+#!/bin/bash
+# Author: techgaun
+
+HEROKU_APP=${HEROKU_APP:?HEROKU_APP must be set for this script to work}
+DATABASE_NAME=${DATABASE_NAME:?DATABASE_NAME must be set representing local db to create}
+HEROKU_DB_URL=${HEROKU_DB_URL:-DATABASE_URL}
+
+DB_USER=${DB_USER:-postgres}
+DB_DUMP="latest.dump"
+export PGPASSWORD=${PGPASSWORD:-postgres}
+
+command heroku -v >& /dev/null || {
+  echo "heroku cli tool not found. Please install heroku-cli"
+  exit 1
+}
+
+cd /tmp
+rm -f "${DB_DUMP}"
+
+heroku pg:backups:capture "${HEROKU_DB_URL}" --app "${HEROKU_APP}"
+heroku pg:backups:download --app "${HEROKU_APP}"
+
+dropdb -U "${DB_USER}" "${DATABASE_NAME}"
+createdb -U "${DB_USER}" "${DATABASE_NAME}"
+pg_restore --verbose --clean --no-acl --no-owner -h localhost -U "${DB_USER}" -d "${DATABASE_NAME}" "${DB_DUMP}"
+
+echo "Your local DB has been setup with heroku data from ${HEROKU_APP} using source ${HEROKU_DB_URL}"
